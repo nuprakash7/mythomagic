@@ -1,4 +1,3 @@
-
 from permanentsbase import Permanent
 
 # Creatures
@@ -7,6 +6,7 @@ class Creature(Permanent):
         super().__init__(name, mana_cost)
         self.power = power
         self.toughness = toughness
+        self.base_toughness = toughness  # Store the original toughness
         self.keywords = keywords if keywords else set()
         self.summoning_sick = True  # Prevents attacking the turn it enters unless it has Haste
 
@@ -85,6 +85,13 @@ class Creature(Permanent):
         if self.toughness <= 0:
             self.trigger_ability("on_destroy")
             print(f"{self.name} is destroyed!")
+            self.owner.creatures.remove(self)
+            self.move_to_graveyard()
+    def reset_toughness(self):
+        """Resets toughness at the end of the turn"""
+        self.toughness = self.base_toughness
+        print(f"{self.name}'s toughness is restored to {self.base_toughness}.")
+
 
     
 

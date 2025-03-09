@@ -1,5 +1,4 @@
 from abc import ABC, abstractmethod
-import random
 
 # Stack to handle spell and ability resolution
 class Stack:

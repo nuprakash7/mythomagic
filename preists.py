@@ -3,7 +3,6 @@ from permanentsbase import Permanent
 class Priest(Permanent):
     def __init__(self, name, owner, primary_material, secondary_material=None):
         super().__init__(name, material_cost=0)
-        self.owner = owner
         self.primary_material = primary_material
         self.secondary_material = secondary_material
         

@@ -6,7 +6,7 @@ class Permanent(Card):
         self.tapped = False
         self.keywords = keywords if keywords else set()
         self.zone = "battlefield"  # Track where the card is
-
+        
     def tap(self):
         if not self.tapped:
             self.tapped = True

@@ -4,6 +4,10 @@ from enchantments import Enchantment
 from artifacts import Artifact  
 from corebase import Stack
 import random
+import socket 
+import threading
+import json
+
 
 class Player:
     def __init__(self, name, deck):
@@ -153,7 +157,7 @@ class Game:
             choice = input("Enter your choice: ")
 
             if choice == "1":
-                self.cast_spell_phase(active_player, allowed_types=["Instant", "Flash", "Sorcery", "Creature", "Enchantment", "Artifact", "Planeswalker"])
+                self.cast_spell_phase(active_player, allowed_types=["Instant", "Sorcery", "Creature", "Enchantment", "Artifact", "Planeswalker"])
             elif choice == "2":
                 break
             else:
@@ -173,6 +177,8 @@ class Game:
             if choice == "1":
                 self.cast_spell_phase(active_player, allowed_types=["Instant", "Flash"])
             elif choice == "2":
+                for creature in active_player.creatures:
+                    creature.reset_toughness()
                 break
             else:
                 print("Invalid choice. Try again.")
@@ -215,7 +221,7 @@ class Game:
             choice = input("Enter your choice: ")
 
             if choice == "1":
-                self.cast_spell_phase(active_player, allowed_types=["Instant", "Flash"])
+                self.cast_spell_phase(active_player, allowed_types=["Instant"])
             elif choice == "2":
                 if not active_player.creatures:
                     print(f"{active_player.name} has no creatures to attack with.")
@@ -250,7 +256,7 @@ class Game:
                     print(f"{defender.name}, choose blockers for each attacker.")
                     for attacker in attackers:
                         print(f"{attacker.name} is attacking.")
-                        available_blockers = [creature for creature in defender.creatures if not creature.summoning_sick]
+                        available_blockers = [creature for creature in defender.creatures if not creature.tapped]
                         if not available_blockers:
                             print(f"{defender.name} has no creatures to block with.")
                             continue
@@ -272,10 +278,11 @@ class Game:
 
                 # Step 3: Assign Combat Damage
                 for attacker in attackers:
-                    if attacker in blockers:
-                        damage_to_player = attacker.assign_combat_damage(blockers[attacker])
-                        if damage_to_player > 0:
-                            target_player.take_damage(damage_to_player)
+                    if attacker in blockers.keys():
+                        for blocker in blockers[attacker]:
+                            damage_to_blocker = attacker.assign_combat_damage([blocker])
+                            if damage_to_blocker > 0:
+                                blocker.take_damage(damage_to_blocker)
                     else:
                         print(f"{attacker.name} deals {attacker.power} damage to {target_player.name}!")
                         target_player.take_damage(attacker.power)
@@ -306,3 +313,54 @@ class Game:
             print(f"{alive_players[0].name} wins the game!")
             return True
         return False
+    
+
+class GameListener:
+    def __init__(self, host="0.0.0.0", port=5001):
+        self.host = host
+        self.port = port
+        self.waiting_players = []
+        self.server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.server.bind((self.host, self.port))
+        self.server.listen(5)  # Allow multiple connections
+        print(f"TCP server listening on {self.host}:{self.port}")
+
+    def handle_client(self, conn, addr):
+        try:
+            data = conn.recv(1024).decode("utf-8")
+            player_info = json.loads(data)
+            print(f"Received player request: {player_info}")
+            self.waiting_players.append(player_info)
+
+            if len(self.waiting_players) >= 2:
+                self.start_game()
+        except Exception as e:
+            print(f"Error handling client {addr}: {e}")
+        finally:
+            conn.close()
+
+    def start_game(self):
+        if len(self.waiting_players) < 2:
+            return
+        
+        player1 = self.waiting_players.pop(0)
+        player2 = self.waiting_players.pop(0)
+        
+        print(f"Starting game between {player1['name']} and {player2['name']}")
+        new_game  = Game([Player(player1['name'], player1['deck']), Player(player2['name'], player2['deck'])])
+        new_game.start_game()
+        # Notify system (e.g., send to game server, store in DB, etc.)
+
+    def start_listener(self):
+        while True:
+            conn, addr = self.server.accept()
+            print(f"Player connected from {addr}")
+            threading.Thread(target=self.handle_client, args=(conn, addr), daemon=True).start()
+
+if __name__ == "__main__":
+    listener = GameListener()
+    listener.start_listener()
+
+
+
+
